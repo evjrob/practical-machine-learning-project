@@ -11,7 +11,7 @@ library(caret)
 set.seed(73222)
 ```
 
-## Data Exploration
+## Data Exploration and Cleaning
 We start by importing the data from the provided csv files. For now I will only import the training data, as I am going to split this into a new training subset and a testing subset and use the provided pml-testing.csv file for final model validation.
 ```{r import}
 raw_pml_training <- read.csv("pml-training.csv")
@@ -29,5 +29,61 @@ It looks like there are a large number of rows of data to be used for training a
 names(training)
 ```
 
-From the source of the data <http://groupware.les.inf.puc-rio.br/har>, we know that the particiapants were then asked to complete dumbbell bicep curls in five different ways, the first using proper technique and the next four using a variety of incorrect techniques. These differing techniques are identified in the classe variable using the letters A through E. We also know that the main components of the data come from four separate three axis accellerometers. One accelerometer was mounted on the dumbell, and three were located on the particiapants waist, forearm, and upper arm.
+From the source of the data <http://groupware.les.inf.puc-rio.br/har>, we know that six different participants were asked to complete dumbbell bicep curls in five different ways, the first using proper technique and the next four using a variety of incorrect techniques. These differing techniques are identified in the classe variable using the letters A through E. We also know that the main components of the data come from four separate three axis accellerometers. One accelerometer was mounted on the dumbell, and three were located on the particiapants waist, forearm, and upper arm.
+
+The first seven columns appear to be related to data collection rather than actual measurements, and they will need to be removed from each data frame before training is performed:
+```{r}
+head(training[1:7])
+```
+
+Each accelerometer also recorded 38 different variables during each repitition:
+```{r}
+length(grep("dumbbell", names(training)))
+length(grep("belt", names(training)))
+length(grep("forearm", names(training)))
+length(grep("_arm", names(training)))
+```
+
+These measurements are on various paramters such as roll, pitch, yaw, acceleration, gyros, and magnetic measurements. They are also supplemented by statistics for each measurement such as mean, minimum, maximum, amplitude, variance, standard deviation, skew, and kurtosis.
+
+We hope that the combinations of all of the above will be sufficiently different between the different classe exercise techniques.
+
+```{r}
+ggplot(training) + geom_point(aes(x = X, y = roll_dumbbell, colour = classe), alpha = 0.2) + facet_wrap("user_name")
+```
+
+
+```{r}
+ggplot(training) + geom_point(aes(x = X, y = pitch_dumbbell, colour = classe), alpha = 0.2) + facet_wrap("user_name")
+```
+
+
+```{r}
+ggplot(training) + geom_point(aes(x = X, y = accel_dumbbell_y, colour = classe), alpha = 0.2) + facet_wrap("user_name")
+```
+
+It appears there is a lot of variation between how the different participants perform the dumbell curls, which reinforces the descision to remove the user_name column from the training data before training occurs to prevent it from playing a roll in the classification process. There are some visible differences between the classe groups as well, which suggests that the combination of multiple different accelerometer readings for each recorded exercise might be able to distinguish the techniques.
+
+It is unlikely that all 38 columns from each accelerometer will be necessary to properly classify each excersice, and so we will remove or consolidate columns that are unlikely to be crutial to classification.
+
+# Remove sparse columns
+
+# Remove low variance columns or collapse them into fewer columns using PCA
+
+
+The above preprocessing steps will need to be performed before the data is ready to be used for training. It is necessary that the same preprocessing steps be performed on each of the training, testing, and validation data frames, so I will put all of the steps in a function that can be run on all three data frames to ensure consistency.
+```{r}
+pre_process_data <- function(data) {
+  drop_columns <- c(-1, # Drop column "X" since it is just a row index.
+                    -2, # Drop column "user_name" since the predictions should work independent of user
+                    -3,
+                    -4, 
+                    -5,
+                    -6,
+                    -7)
+  data <- data[,drop_columns]
+}
+```
+
+## Model Building and Selection
 
