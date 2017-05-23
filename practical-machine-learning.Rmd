@@ -1,0 +1,33 @@
+---
+title: "Practical Machine Learning Project"
+author: "Everett Robinson"
+date: "May 23, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+set.seed(73222)
+```
+
+## Data Exploration
+We start by importing the data from the provided csv files. For now I will only import the training data, as I am going to split this into a new training subset and a testing subset and use the provided pml-testing.csv file for final model validation.
+```{r import}
+raw_pml_training <- read.csv("pml-training.csv")
+in_training <- createDataPartition(y = raw_pml_training$classe, p = 0.75, list = FALSE)
+training <- raw_pml_training[in_training,]
+testing <- raw_pml_training[-in_training,]
+
+dim(training)
+dim(testing)
+```
+
+It looks like there are a large number of rows of data to be used for training and testing, so I will stick with this simple data partition and not use any folding or resampling techniques on the data. There are a large number of predictors however so we will need to investigate these further.
+
+```{r col_names}
+names(training)
+```
+
+From the source of the data <http://groupware.les.inf.puc-rio.br/har>, we know that the particiapants were then asked to complete dumbbell bicep curls in five different ways, the first using proper technique and the next four using a variety of incorrect techniques. These differing techniques are identified in the classe variable using the letters A through E. We also know that the main components of the data come from four separate three axis accellerometers. One accelerometer was mounted on the dumbell, and three were located on the particiapants waist, forearm, and upper arm.
+
