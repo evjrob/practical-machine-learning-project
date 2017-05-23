@@ -66,14 +66,30 @@ It appears there is a lot of variation between how the different participants pe
 
 It is unlikely that all 38 columns from each accelerometer will be necessary to properly classify each excersice, and so we will remove or consolidate columns that are unlikely to be crutial to classification.
 
-# Remove sparse columns
+The first step in this process will be to figure out which columns are not well populated with data. After running **View(training)**, the columns containing the summary statistics appear to be very sparse. I suspect that it is the case that only the last row of data in each num_window set was populated with these values, and now they are spread across our training, testing, and validation data sets. Because it would be difficult to correct this issue while still maintaining the separation of the datasets, these columns are prime candidates for removal.
 
-# Remove low variance columns or collapse them into fewer columns using PCA
+We will start by figuring out how sparse each column actually is:
+
+```{r}
+percent_sparse <- function(col) {
+  sum((is.na(col) | col == "")/ length(col))
+}
+
+sparseness <- apply(training, 2, percent_sparse)
+
+table(sparseness)
+names(sparseness[sparseness > 0.95])
+```
+
+So it turns out that all of the columns containing summary statistics are nearly 98% empty. We will remove these when cleaning the data:
+```{r}
+sparse_columns <- sparseness > 0.95
+```
 
 
 The above preprocessing steps will need to be performed before the data is ready to be used for training. It is necessary that the same preprocessing steps be performed on each of the training, testing, and validation data frames, so I will put all of the steps in a function that can be run on all three data frames to ensure consistency.
 ```{r}
-pre_process_data <- function(data) {
+clean_data <- function(data) {
   drop_columns <- c(-1, # Drop column "X" since it is just a row index.
                     -2, # Drop column "user_name" since the predictions should work independent of user
                     -3,
