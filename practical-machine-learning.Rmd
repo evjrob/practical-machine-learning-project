@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(caret)
+library(doParallel)
 set.seed(73222)
 ```
 
@@ -92,14 +93,83 @@ sparse_columns <- sparseness > 0.95
 ```
 
 
-The above preprocessing steps will need to be performed before the data is ready to be used for training. It is necessary that the same preprocessing steps be performed on each of the training, testing, and validation data frames, so I will put all of the steps in a function that can be run on all three data frames to ensure consistency.
+The above cleaning steps will need to be performed before the data is ready to be used for training. It is necessary that the same preprocessing steps be performed on each of the training, testing, and validation data frames, so I will put all of the steps in a function that can be run on all three data frames to ensure consistency.
 ```{r}
 clean_data <- function(data) {
   drop_columns <- non_measurement_columns | sparse_columns
   data <- data[,!drop_columns]
   return(data)
 }
+
+clean_training <- clean_data(training)
+clean_testing <- clean_data(testing)
 ```
+
+
 
 ## Model Building and Selection
 
+We will train several different types of machine learning models before evaluating them both individually and stacked with each other. We will test linear discriminant analysis, random forests, gradient boosting, and support vector machines. The stacked model will be combined using random forests on the predictions of the previous four models. All of these models will be trained using the default parameters provided through the caret package.
+
+```{r}
+set.seed(82917)
+
+# We will set up a cluster to parallelize the training steps for performance reasons
+cl <- makeCluster(6)
+registerDoParallel(cl)
+```
+
+```{r linear_discriminant_analysis}
+lda_mod <- train(classe ~ ., method = "lda", data = clean_training)
+lda_pred <- predict(lda_mod, clean_testing)
+```
+
+```{r random_forest}
+rf_mod <- train(classe ~ ., method = "parRF", data = clean_training)
+rf_pred <-predict(rf_mod, clean_testing)
+```
+
+```{r gradient_boosting}
+xgbTree_mod <- train(classe ~ ., method = "xgbTree", data = clean_training)
+xgbTree_pred <- predict(xgbTree_mod, clean_testing)
+```
+
+
+```{r support_vector_machines}
+svm_mod <- train(classe ~ ., method = "svmLinear", data = clean_training)
+svm_pred <- predict(svm_mod, clean_testing)
+```
+
+
+```{r stacked}
+stacked <- data.frame(lda_pred, rf_pred, xgbTree_pred, svm_pred, classe = testing$classe)
+stacked_mod <- train(classe ~ ., method = "rf", data = stacked)
+stacked_pred <- predict(stacked_mod, clean_testing)
+```
+
+And with all of our models trained we can now see how well each of them performed using the confusionMatrix function in the caret package.
+
+###Linear Discriminant Performance:
+```{r}
+confusionMatrix(lda_pred, clean_testing$classe)
+```
+
+###Random Forest Performance:
+```{r}
+confusionMatrix(rf_pred, clean_testing$classe)
+```
+
+### Gradient Boosting Performance:
+```{r}
+confusionMatrix(xgbTree_pred, clean_testing$classe)
+```
+
+###Support Vector Machines Performance:
+```{r}
+confusionMatrix(svm_pred, clean_testing$classe)
+```
+
+###Stacked Model Performance:
+```{r}
+confusionMatrix(stacked_pred, clean_testing$classe)
+```
