@@ -152,25 +152,50 @@ And with all of our models trained we can now see how well each of them performe
 
 ###Linear Discriminant Performance:
 ```{r}
-confusionMatrix(lda_pred, clean_validation$classe)
+lda_validation <- confusionMatrix(lda_pred, clean_validation$classe)
+lda_validation
 ```
+Linear Discriminant Analysis using the default settings provided by caret performed better than random guessing, but with a cross validated accuracy of `r lda_validation$overall[["Accuracy"]]` we can only expect to get all 20 points in the testing set correct with a probability of `r lda_validation$overall[["Accuracy"]]`^20, or `r lda_validation$overall[["Accuracy"]]^20`. There are no tuning parameters avaiable for the lda method in caret, which suggests this accelerometer data is not a good fit for the model. This leads me to suspect that that the problem of classifying the technique used during the excercises is not linear.
 
 ###Random Forest Performance:
 ```{r}
-confusionMatrix(rf_pred, clean_validation$classe)
+rf_validation <- confusionMatrix(rf_pred, clean_validation$classe)
+rf_validation
 ```
+Random Forests using the default settings provided by caret performed extremely well with a cross validated accuracy of `r rf_validation$overall[["Accuracy"]]`. We should expect to get all 20 points in the testing set correct with a probability of `r rf_validation$overall[["Accuracy"]]^20`.
 
 ### Gradient Boosting Performance:
 ```{r}
-confusionMatrix(xgbTree_pred, clean_validation$classe)
+xgbTree_validation <- confusionMatrix(xgbTree_pred, clean_validation$classe)
+xgbTree_validation
 ```
+Gradient Boosting using the default settings provided by caret also performed extremely well with a cross validated accuracy of `r xgbTree_validation$overall[["Accuracy"]]`. This is exactly the same accuracy as the random forest model, but a closer look at the confusion matrix shows that they did not make the exact same predictions as each other.
 
 ###Support Vector Machines Performance:
 ```{r}
-confusionMatrix(svm_pred, clean_validation$classe)
+svm_validation <- confusionMatrix(svm_pred, clean_validation$classe)
+svm_validation
 ```
+Support Vector Machines using a Linear Kernel and the default settings provided by caret produced an accuracy of `r svm_validation$overall[["Accuracy"]]`. This means the model performed better than Linear Discriminant Analysis when classifying the exercises, but it is well behind the performance of the random forest and gradient boosting models. This further supports my hypothesis that the problem is non-linear.
 
 ###Stacked Model Performance:
 ```{r}
-confusionMatrix(stacked_pred, clean_validation$classe)
+stacked_validation <- confusionMatrix(stacked_pred, clean_validation$classe)
+stacked_validation
 ```
+Stacking the above four models and using a random forest model to make predictions had a cross validation accuracy of `r stacked_validation$overall[["Accuracy"]]`. This exceeds the accuracies of both the random forest and gradient boosting models on their own and means this approach is our strongest contender to be used when we make our predictions on the 20 rows of the testing data frame.
+
+## Final Model Testing
+
+```{r}
+lda_test_pred <- predict(lda_mod, clean_testing)
+rf_test_pred <- predict(rf_mod, clean_testing)
+xgbTree_test_pred <- predict(xgbTree_mod, clean_testing)
+svm_test_pred <- predict(svm_mod, clean_testing)
+
+stacked_test <- data.frame(lda_pred = lda_test_pred, rf_pred = rf_test_pred, xgbTree_pred = xgbTree_test_pred, svm_pred = svm_test_pred)
+stacked_test_pred <- predict(stacked_mod, stacked_test)
+
+stacked_test_pred
+```
+
