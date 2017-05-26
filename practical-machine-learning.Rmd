@@ -2,7 +2,7 @@
 title: "Practical Machine Learning Project"
 author: "Everett Robinson"
 date: "May 23, 2017"
-output: html_document
+output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
@@ -141,7 +141,6 @@ xgbTree_pred <- predict(xgbTree_mod, clean_validation)
 svm_mod <- train(classe ~ ., method = "svmLinear", data = clean_training)
 svm_pred <- predict(svm_mod, clean_validation)
 ```
-
 
 ```{r stacked}
 stacked <- data.frame(lda_pred, rf_pred, xgbTree_pred, svm_pred, classe = clean_validation$classe)
