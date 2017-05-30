@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning Project"
 author: "Everett Robinson"
-date: "May 23, 2017"
+date: "May 29, 2017"
 output: html_notebook
 ---
 
@@ -25,7 +25,7 @@ dim(training)
 dim(validation)
 ```
 
-It looks like there are a large number of rows of data to be used for training and validation, so I will stick with this simple data partition and not use any folding or resampling techniques on the data. There are a large number of predictors however so we will need to investigate these further.
+It looks like there are a large number of rows of data to be used for training and validation, so I will stick with this somewhat atypical data partion fraction of 80% training and 20% validation data. There are a large number of predictors in the training data that we will need to investigate further.
 
 ```{r col_names}
 names(training)
@@ -94,7 +94,7 @@ sparse_columns <- sparseness > 0.95
 ```
 
 
-The above cleaning steps will need to be performed before the data is ready to be used for training. It is necessary that the same preprocessing steps be performed on each of the training, validation, and testing data frames, so I will put all of the steps in a function that can be run on all three data frames to ensure consistency.
+The above cleaning steps will need to be performed before the data is ready to be used for training. We will also perfrm the same preprocessing steps on each of the training, validation, and testing data frames.
 ```{r}
 clean_data <- function(data) {
   drop_columns <- non_measurement_columns | sparse_columns
@@ -114,35 +114,38 @@ clean_testing <- clean_data(testing)
 We will train several different types of machine learning models before evaluating them both individually and stacked with each other. We will test linear discriminant analysis, random forests, gradient boosting, and support vector machines. The stacked model will be combined using random forests on the predictions of the previous four models. All of these models will be trained using the default parameters provided through the caret package.
 
 ```{r}
-set.seed(82917)
-
 # We will set up a cluster to parallelize the training steps for performance reasons
-cl <- makeCluster(6)
+cl <- makeCluster(detectCores())
 registerDoParallel(cl)
 ```
 
 ```{r linear_discriminant_analysis}
+set.seed(82917)
 lda_mod <- train(classe ~ ., method = "lda", data = clean_training)
 lda_pred <- predict(lda_mod, clean_validation)
 ```
 
 ```{r random_forest}
+set.seed(30083)
 rf_mod <- train(classe ~ ., method = "parRF", data = clean_training)
 rf_pred <-predict(rf_mod, clean_validation)
 ```
 
 ```{r gradient_boosting}
+set.seed(22487)
 xgbTree_mod <- train(classe ~ ., method = "xgbTree", data = clean_training)
 xgbTree_pred <- predict(xgbTree_mod, clean_validation)
 ```
 
 
 ```{r support_vector_machines}
+set.seed(54383)
 svm_mod <- train(classe ~ ., method = "svmLinear", data = clean_training)
 svm_pred <- predict(svm_mod, clean_validation)
 ```
 
 ```{r stacked}
+set.seed(46293)
 stacked <- data.frame(lda_pred, rf_pred, xgbTree_pred, svm_pred, classe = clean_validation$classe)
 stacked_mod <- train(classe ~ ., method = "rf", data = stacked)
 stacked_pred <- predict(stacked_mod, clean_validation)
@@ -169,7 +172,7 @@ Random Forests using the default settings provided by caret performed extremely 
 xgbTree_validation <- confusionMatrix(xgbTree_pred, clean_validation$classe)
 xgbTree_validation
 ```
-Gradient Boosting using the default settings provided by caret also performed extremely well with a cross validated accuracy of `r xgbTree_validation$overall[["Accuracy"]]`. This is exactly the same accuracy as the random forest model, but a closer look at the confusion matrix shows that they did not make the exact same predictions as each other.
+Gradient Boosting using the default settings provided by caret also performed extremely well with a cross validated accuracy of `r xgbTree_validation$overall[["Accuracy"]]`. This is comparable to the random forest model, but a closer look at the confusion matrix shows that they did not make the exact same predictions as each other.
 
 ###Support Vector Machines Performance:
 ```{r}
@@ -185,6 +188,12 @@ stacked_validation
 ```
 Stacking the above four models and using a random forest model to make predictions had a cross validation accuracy of `r stacked_validation$overall[["Accuracy"]]`. This exceeds the accuracies of both the random forest and gradient boosting models on their own and means this approach is our strongest contender to be used when we make our predictions on the 20 rows of the testing data frame.
 
+```{r}
+ggplot(varImp(stacked_mod)) + ggtitle("Importance of Individual Model Predictions in the Final Stacked Model")
+```
+
+A look at the importance of the imoportance of the predictions made by each of the component models to the final stacked model shows that the Gradient Boosting and Random Forest models dominated the decision making process. In a distsant third place, the Support Vector Machines model contributed a bit, and Linear Discriminant Analaysis contributed little. None of this is that surprising given the performance of each model indivdually before stacking occured.
+
 ## Final Model Testing
 
 ```{r}
@@ -199,3 +208,6 @@ stacked_test_pred <- predict(stacked_mod, stacked_test)
 stacked_test_pred
 ```
 
+Submitting these twenty predictions to the accompanying quiz produced a perfect score of 20/20. This confirms that our high cross validation accuracies using the stacked model were not a fluke and that it should continue to predict the technique used for dumbbell curls when provided with accelerometer data has been collected in the same way for the six individuals studied.
+
+It would be interesting to see how high the accuracy will be if this model were applied to similar data for new individuals who have not contributed to the data used for training.
