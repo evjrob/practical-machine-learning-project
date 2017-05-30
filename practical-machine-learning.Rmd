@@ -2,7 +2,9 @@
 title: "Practical Machine Learning Project"
 author: "Everett Robinson"
 date: "May 29, 2017"
-output: html_notebook
+output:
+  html_document: default
+  html_notebook: default
 ---
 
 ```{r setup, include=FALSE}
